@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { list, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import type { HabitStore, PersonId } from "./types";
 
 const EMPTY_STORE: HabitStore = {
@@ -10,7 +10,8 @@ const EMPTY_STORE: HabitStore = {
 
 const LOCAL_DIR = path.join(process.cwd(), "data");
 const LOCAL_FILE = path.join(LOCAL_DIR, "habits.json");
-const BLOB_PATH = "summer-habit-tracker/habits.json";
+const BLOB_PREFIX = "summer-habit-tracker/habits/";
+const LEGACY_BLOB_PATH = "summer-habit-tracker/habits.json";
 
 function hasBlobToken() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
@@ -41,8 +42,7 @@ async function writeLocalStore(store: HabitStore) {
 }
 
 async function readBlobStore() {
-  const existing = await list({ prefix: BLOB_PATH, limit: 1 });
-  const blob = existing.blobs[0];
+  const blob = await getLatestBlob();
 
   if (!blob) {
     return structuredClone(EMPTY_STORE);
@@ -57,12 +57,44 @@ async function readBlobStore() {
 }
 
 async function writeBlobStore(store: HabitStore) {
-  await put(BLOB_PATH, JSON.stringify(store, null, 2), {
+  const pathname = `${BLOB_PREFIX}${Date.now().toString().padStart(16, "0")}.json`;
+  const nextBlob = await put(pathname, JSON.stringify(store, null, 2), {
     access: "public",
-    allowOverwrite: true,
     addRandomSuffix: false,
     contentType: "application/json"
   });
+
+  const oldBlobs = await listCandidateBlobs();
+  await Promise.all(
+    oldBlobs
+      .filter((blob) => blob.pathname !== nextBlob.pathname)
+      .map((blob) => del(blob.url))
+  );
+}
+
+async function listCandidateBlobs() {
+  const [versioned, legacy] = await Promise.all([
+    list({ prefix: BLOB_PREFIX, limit: 1000 }),
+    list({ prefix: LEGACY_BLOB_PATH, limit: 10 })
+  ]);
+
+  return [...versioned.blobs, ...legacy.blobs];
+}
+
+async function getLatestBlob() {
+  const candidates = await listCandidateBlobs();
+  const versionedCandidates = candidates.filter((blob) =>
+    blob.pathname.startsWith(BLOB_PREFIX)
+  );
+
+  if (versionedCandidates.length > 0) {
+    return versionedCandidates.slice(1).reduce(
+      (latest, current) => (current.pathname > latest.pathname ? current : latest),
+      versionedCandidates[0]
+    );
+  }
+
+  return candidates.find((blob) => blob.pathname === LEGACY_BLOB_PATH);
 }
 
 export async function readStore() {
