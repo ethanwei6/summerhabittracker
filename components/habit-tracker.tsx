@@ -155,31 +155,35 @@ export function HabitTracker() {
 
     startTransition(() => {
       void (async () => {
-      const response = await fetch("/api/habits", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          personId: selected.personId,
-          date: selected.date,
-          completed: draft
-        })
-      });
+        try {
+          const response = await fetch("/api/habits", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              personId: selected.personId,
+              date: selected.date,
+              completed: draft
+            })
+          });
 
-      const payload = (await response.json()) as { data?: HabitStore; error?: string };
-      if (!response.ok || !payload.data) {
-        setStatus(payload.error ?? "Something went wrong while saving.");
-        return;
-      }
+          const payload = (await response.json()) as { data?: HabitStore; error?: string };
+          if (!response.ok || !payload.data) {
+            setStatus(payload.error ?? "Something went wrong while saving.");
+            return;
+          }
 
-      setStore(payload.data);
-      setDraftEdits((current) => ({
-        ...current,
-        [selectionKey]: draft
-      }));
-      setStatus(`Saved ${selectedPerson.name}'s progress for ${formatLongDate(selected.date)}.`);
-      setView("overview");
+          setStore(payload.data);
+          setDraftEdits((current) => ({
+            ...current,
+            [selectionKey]: draft
+          }));
+          setStatus(`Saved ${selectedPerson.name}'s progress for ${formatLongDate(selected.date)}.`);
+          setView("overview");
+        } catch {
+          setStatus("The save request failed. Please try again in a moment.");
+        }
       })();
     });
   }

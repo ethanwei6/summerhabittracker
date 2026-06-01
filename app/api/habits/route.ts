@@ -4,33 +4,45 @@ import { readStore, updateDay } from "@/lib/storage";
 import type { PersonId } from "@/lib/types";
 
 export async function GET() {
-  const data = await readStore();
-  return NextResponse.json({ data });
+  try {
+    const data = await readStore();
+    return NextResponse.json({ data });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to load habit data.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as {
-    personId?: PersonId;
-    date?: string;
-    completed?: boolean[];
-  };
+  try {
+    const body = (await request.json()) as {
+      personId?: PersonId;
+      date?: string;
+      completed?: boolean[];
+    };
 
-  const person = PEOPLE.find((entry) => entry.id === body.personId);
-  if (!person || !body.date || !Array.isArray(body.completed)) {
-    return NextResponse.json(
-      { error: "Invalid habit update payload." },
-      { status: 400 }
+    const person = PEOPLE.find((entry) => entry.id === body.personId);
+    if (!person || !body.date || !Array.isArray(body.completed)) {
+      return NextResponse.json(
+        { error: "Invalid habit update payload." },
+        { status: 400 }
+      );
+    }
+
+    const normalized = person.tasks.reduce<Record<string, boolean>>(
+      (accumulator, task, index) => {
+        accumulator[task] = Boolean(body.completed?.[index]);
+        return accumulator;
+      },
+      {}
     );
+
+    const data = await updateDay(person.id, body.date, normalized);
+    return NextResponse.json({ data });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to save habit data.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const normalized = person.tasks.reduce<Record<string, boolean>>(
-    (accumulator, task, index) => {
-      accumulator[task] = Boolean(body.completed?.[index]);
-      return accumulator;
-    },
-    {}
-  );
-
-  const data = await updateDay(person.id, body.date, normalized);
-  return NextResponse.json({ data });
 }

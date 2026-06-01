@@ -16,6 +16,16 @@ function hasBlobToken() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
+function isVercelRuntime() {
+  return Boolean(process.env.VERCEL);
+}
+
+function missingBlobError() {
+  return new Error(
+    "This deployment is missing Vercel Blob storage. Add BLOB_READ_WRITE_TOKEN in Vercel and redeploy."
+  );
+}
+
 async function readLocalStore() {
   try {
     const file = await readFile(LOCAL_FILE, "utf8");
@@ -62,6 +72,10 @@ async function writeBlobStore(store: HabitStore) {
 }
 
 export async function readStore() {
+  if (isVercelRuntime() && !hasBlobToken()) {
+    return structuredClone(EMPTY_STORE);
+  }
+
   return hasBlobToken() ? readBlobStore() : readLocalStore();
 }
 
@@ -75,6 +89,8 @@ export async function updateDay(
 
   if (hasBlobToken()) {
     await writeBlobStore(store);
+  } else if (isVercelRuntime()) {
+    throw missingBlobError();
   } else {
     await writeLocalStore(store);
   }
