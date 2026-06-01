@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { del, list, put } from "@vercel/blob";
+import { list, put } from "@vercel/blob";
 import type { HabitStore, PersonId } from "./types";
 
 const EMPTY_STORE: HabitStore = {
@@ -57,18 +57,12 @@ async function readBlobStore() {
 }
 
 async function writeBlobStore(store: HabitStore) {
-  const existing = await list({ prefix: BLOB_PATH, limit: 1 });
   await put(BLOB_PATH, JSON.stringify(store, null, 2), {
     access: "public",
+    allowOverwrite: true,
     addRandomSuffix: false,
     contentType: "application/json"
   });
-
-  await Promise.all(
-    existing.blobs
-      .filter((blob) => blob.pathname !== BLOB_PATH)
-      .map((blob) => del(blob.url))
-  );
 }
 
 export async function readStore() {
