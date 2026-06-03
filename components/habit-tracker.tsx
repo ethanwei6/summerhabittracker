@@ -115,6 +115,12 @@ export function HabitTracker() {
     draftEdits[selectionKey] ??
     draftForSelection(store, selected.personId, selected.date);
   const selectedDayHasEntry = hasEntry(store, selected.personId, selected.date);
+  const selectedDayCount = completionCount(
+    store,
+    selected.personId,
+    selected.date,
+    selectedPerson.tasks
+  );
 
   function applySelection(nextSelection: SelectedState) {
     setSelected(nextSelection);
@@ -157,6 +163,7 @@ export function HabitTracker() {
       })),
     [store]
   );
+  const selectedSummary = totals.find((person) => person.id === selected.personId);
 
   async function save() {
     setStatus("Saving your check-in...");
@@ -291,41 +298,47 @@ export function HabitTracker() {
 
   return (
     <main className="page-shell">
-      <section className="hero-card">
-        <p className="eyebrow">Summer 2026</p>
-        <h1>Habit tracker for the two of you.</h1>
-        <p className="hero-copy">
-          Check in once each night, watch the calendar fill from red to green,
-          and keep the whole summer visible from March 12 through August 25.
-        </p>
-        <div className="legend">
-          {[0, 1, 2, 3, 4, 5].map((count) => (
-            <div key={count} className="legend-item">
-              <span
-                className="legend-swatch"
-                style={{ backgroundColor: colorForCount(count) }}
-              />
-              <span>{count}/5</span>
-            </div>
-          ))}
+      <header className="topbar">
+        <div className="topbar-copy">
+          <p className="eyebrow">Ethan + Annie</p>
+          <h1>Summer ledger</h1>
+          <p className="hero-copy">
+            A shared daily ritual for work, hydration, steps, sleep, and prep.
+            Log the day, then read the season at a glance.
+          </p>
         </div>
-      </section>
+        <div className="topbar-meta">
+          <div className="meta-chip">March 12 to August 25</div>
+          <div className="meta-chip">{DATE_RANGE.length} tracked days</div>
+        </div>
+      </header>
 
       <section className="summary-grid">
         {totals.map((person) => (
           <article key={person.id} className="summary-card">
             <div className="summary-header">
-              <h2>{person.name}</h2>
+              <div>
+                <p className="summary-label">Progress</p>
+                <h2>{person.name}</h2>
+              </div>
               <button
                 className="ghost-button"
                 type="button"
                 onClick={() => openPersonWorkspace(person.id)}
               >
-                Edit
+                Open
               </button>
             </div>
-            <p>{person.completedDays} fully green days</p>
-            <strong>{person.totalChecks} total habits completed</strong>
+            <div className="metric-row">
+              <div>
+                <span className="metric-value">{person.completedDays}</span>
+                <span className="metric-caption">perfect days</span>
+              </div>
+              <div>
+                <span className="metric-value">{person.totalChecks}</span>
+                <span className="metric-caption">habits checked</span>
+              </div>
+            </div>
           </article>
         ))}
       </section>
@@ -333,12 +346,11 @@ export function HabitTracker() {
       {view === "pick" ? (
         <section className="picker-card">
           <div className="picker-copy">
-            <p className="eyebrow">Step 1</p>
-            <h2>Choose who is checking in tonight.</h2>
+            <p className="eyebrow">Entry Point</p>
+            <h2>Choose whose day you want to open.</h2>
             <p className="hero-copy">
-              Ethan and Annie each log their own habits first. After saving, the
-              site opens the shared summer view so both calendars can be compared
-              side by side. You can also toggle between a check-in form and calendar anytime.
+              Each person has a focused workspace with a check-in view, a private
+              calendar view, and the shared summer board.
             </p>
           </div>
           <div className="picker-grid">
@@ -349,9 +361,9 @@ export function HabitTracker() {
                 className="picker-button"
                 onClick={() => openPersonWorkspace(person.id)}
               >
-                <span className="picker-label">Log as</span>
+                <span className="picker-label">Workspace</span>
                 <strong>{person.name}</strong>
-                <small>{person.tasks.length} daily habits</small>
+                <small>{person.tasks.length} daily habits to track</small>
               </button>
             ))}
           </div>
@@ -359,21 +371,58 @@ export function HabitTracker() {
       ) : null}
 
       {view === "person" ? (
-        <section className="person-tab-panel">
-          <section className="editor-card">
+        <section className="workspace-shell">
+          <aside className="workspace-sidebar">
+            <div className="sidebar-card">
+              <p className="eyebrow">Workspace</p>
+              <h2>{selectedPerson.name}</h2>
+              <p className="sidebar-copy">
+                Focus on one person, one day, and one clean read of the season.
+              </p>
+              <div className="sidebar-stat">
+                <span className="sidebar-stat-value">{selectedDayCount}/5</span>
+                <span className="sidebar-stat-label">on {formatLongDate(selected.date)}</span>
+              </div>
+              <div className="sidebar-stat-grid">
+                <div>
+                  <span className="sidebar-mini-value">{selectedSummary?.completedDays ?? 0}</span>
+                  <span className="sidebar-mini-label">perfect days</span>
+                </div>
+                <div>
+                  <span className="sidebar-mini-value">{selectedSummary?.totalChecks ?? 0}</span>
+                  <span className="sidebar-mini-label">total checks</span>
+                </div>
+              </div>
+              <div className="sidebar-actions">
+                <button className="ghost-button" type="button" onClick={() => setView("pick")}>
+                  Switch person
+                </button>
+                <div className="legend legend-compact">
+                  {[0, 1, 2, 3, 4, 5].map((count) => (
+                    <div key={count} className="legend-item">
+                      <span
+                        className="legend-swatch"
+                        style={{ backgroundColor: colorForCount(count) }}
+                      />
+                      <span>{count}/5</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <section className="workspace-main">
+            <section className="editor-card">
             <div className="editor-header">
               <div>
-                <p className="eyebrow">Step 2</p>
+                <p className="eyebrow">Daily Workspace</p>
                 <h2>{selectedPerson.name}</h2>
                 <p className="editor-subtitle">
-                  Use the toggles to switch between the daily submission form, {selectedPerson.name}&apos;s calendar,
-                  and the full summer overview.
+                  Switch between logging, reviewing one calendar, and scanning the full summer board.
                 </p>
               </div>
               <div className="editor-actions">
-                <button className="ghost-button" type="button" onClick={() => setView("pick")}>
-                  Change person
-                </button>
                 <input
                   className="date-input"
                   type="date"
@@ -418,7 +467,7 @@ export function HabitTracker() {
                 {selectedDayHasEntry ? (
                   <div className="submitted-banner">
                     <strong>{selectedPerson.name} already has a saved entry for this day.</strong>
-                    <p>You can update the checkboxes below and resubmit to overwrite that day&apos;s progress.</p>
+                    <p>Adjust anything below and resubmit to overwrite the day cleanly.</p>
                   </div>
                 ) : null}
 
@@ -484,8 +533,8 @@ export function HabitTracker() {
             <section className="overview-panel">
               <div className="overview-header">
                 <div>
-                  <p className="eyebrow">Step 3</p>
-                  <h2>Shared summer overview</h2>
+                  <p className="eyebrow">Shared Board</p>
+                  <h2>Season overview</h2>
                   <p className="hero-copy">
                     Both calendars live here so Ethan and Annie can compare momentum across the whole summer.
                   </p>
@@ -517,6 +566,7 @@ export function HabitTracker() {
               </section>
             </section>
           ) : null}
+          </section>
         </section>
       ) : null}
     </main>
