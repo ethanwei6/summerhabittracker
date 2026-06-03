@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { PEOPLE } from "@/lib/config";
-import { readStore, updateDay } from "@/lib/storage";
+import { deleteDay, readStore, updateDay } from "@/lib/storage";
 import type { PersonId } from "@/lib/types";
 
 export async function GET() {
@@ -43,6 +43,30 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to save habit data.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const body = (await request.json()) as {
+      personId?: PersonId;
+      date?: string;
+    };
+
+    const person = PEOPLE.find((entry) => entry.id === body.personId);
+    if (!person || !body.date) {
+      return NextResponse.json(
+        { error: "Invalid habit delete payload." },
+        { status: 400 }
+      );
+    }
+
+    const data = await deleteDay(person.id, body.date);
+    return NextResponse.json({ data });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to delete habit data.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

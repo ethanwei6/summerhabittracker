@@ -123,3 +123,18 @@ export async function updateDay(
 
   return store;
 }
+
+export async function deleteDay(personId: PersonId, date: string) {
+  const store = await readStore();
+  delete store[personId][date];
+
+  if (hasBlobToken()) {
+    await writeBlobStore(store);
+  } else if (isVercelRuntime()) {
+    throw missingBlobError();
+  } else {
+    await writeLocalStore(store);
+  }
+
+  return store;
+}

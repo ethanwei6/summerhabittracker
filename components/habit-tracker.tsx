@@ -196,6 +196,44 @@ export function HabitTracker() {
     });
   }
 
+  async function clearDay() {
+    setStatus("Clearing this saved day...");
+
+    startTransition(() => {
+      void (async () => {
+        try {
+          const response = await fetch("/api/habits", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              personId: selected.personId,
+              date: selected.date
+            })
+          });
+
+          const payload = (await response.json()) as { data?: HabitStore; error?: string };
+          if (!response.ok || !payload.data) {
+            setStatus(payload.error ?? "Something went wrong while clearing this day.");
+            return;
+          }
+
+          setStore(payload.data);
+          setDraftEdits((current) => {
+            const next = { ...current };
+            delete next[selectionKey];
+            return next;
+          });
+          setStatus(`Cleared ${selectedPerson.name}'s entry for ${formatLongDate(selected.date)}.`);
+          setPanel("form");
+        } catch {
+          setStatus("The clear request failed. Please try again in a moment.");
+        }
+      })();
+    });
+  }
+
   function renderCalendar(
     personId: PersonId,
     tasks: readonly string[],
@@ -406,9 +444,21 @@ export function HabitTracker() {
 
                 <div className="editor-footer">
                   <p className="status-text">{isLoading ? "Loading..." : status}</p>
-                  <button className="save-button" type="button" onClick={save} disabled={isPending}>
-                    {isPending ? "Saving..." : selectedDayHasEntry ? "Resubmit day" : "Submit today"}
-                  </button>
+                  <div className="footer-actions">
+                    {selectedDayHasEntry ? (
+                      <button
+                        className="ghost-button danger-button"
+                        type="button"
+                        onClick={clearDay}
+                        disabled={isPending}
+                      >
+                        Clear saved day
+                      </button>
+                    ) : null}
+                    <button className="save-button" type="button" onClick={save} disabled={isPending}>
+                      {isPending ? "Saving..." : selectedDayHasEntry ? "Resubmit day" : "Submit today"}
+                    </button>
+                  </div>
                 </div>
               </>
             ) : null}
